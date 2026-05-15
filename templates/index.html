@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>World Map Viewer</title>
+    <title>Weather Viewer</title>
+
     <link rel="stylesheet" href="{{ url_for('static', filename='AppStyle.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 
 <body>
@@ -23,82 +26,92 @@
         <img id="map" src="/static/unhovered.webp">
     </div>
 
+    <!-- LEAFLET OVERLAY -->
     <div id="leafletOverlay"></div>
 
-    <!-- MINI PLAYER -->
-    <img id="bg" src="">
-
-    <!-- MENU -->
-    <div id="menu">
-        <div id="close">✖</div>
-
-        <input id="search" placeholder="Search country...">
-
-        <div id="list">
-            {% for name in countries.keys() %}
-            <div class="country" onclick="selectCountry('{{ name }}')">
-                {{ name }}
-            </div>
-            {% endfor %}
-        </div>
-    </div>
+    <!-- IMAGE FIXED (this is the important change) -->
+    <img id="bg" src="/static/static.webp">
 
     <!-- FOOTER -->
     <div id="footer">
         All APIs used are the property of their respective owners.
     </div>
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script>
+    const mapImg = document.getElementById("map");
+    const overlay = document.getElementById("leafletOverlay");
+    const player = document.getElementById("bg");
 
-    <script>
-        const mapImg = document.getElementById("map");
-        const overlay = document.getElementById("leafletOverlay");
+    player.onerror = () => {
+        console.log("Image failed, using fallback");
+        player.src = "/static/static.webp";
+    };
 
-        // open overlay on image click
-        mapImg.addEventListener("click", () => {
-            overlay.classList.add("active");
+    mapImg.addEventListener("click", () => {
 
-            // create Leaflet map only once
-            if (!window.leafletMap) {
-                window.leafletMap = L.map('leafletOverlay').setView([20, 0], 2);
+        overlay.classList.add("active");
 
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 6,
-                    attribution: '&copy; OpenStreetMap'
-                }).addTo(window.leafletMap);
+        if (!window.leafletMap) {
 
-                // click on real map
-                window.leafletMap.on("click", async (e) => {
-                    const { lat, lng } = e.latlng;
+            const bounds = [
+                [-85, -180],
+                [85, 180]
+            ];
 
-                    console.log("Clicked:", lat, lng);
+            window.leafletMap = L.map('leafletOverlay', {
+                center: [20, 0],
+                zoom: 2,
+                minZoom: 2,
+                maxZoom: 6,
 
-                    // send to backend (you can improve later)
-                    const res = await fetch("/get_country", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ lat, lng })
-                    });
+                zoomControl: false,
+                dragging: false,
+                scrollWheelZoom: true,
+                doubleClickZoom: true,
+                boxZoom: true,
+                keyboard: false,
+                touchZoom: true,
 
-                    const data = await res.json();
+                maxBounds: bounds,
+                maxBoundsViscosity: 1.0
+            });
 
-                    document.getElementById("info").textContent =
-                        "Capital: " + data.capital;
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 6,
+                noWrap: true,
+                bounds: bounds,
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(window.leafletMap);
 
-                    const player = document.getElementById("bg");
-                    player.src = data.image;
-                    player.style.display = "block";
+            window.leafletMap.on("click", async (e) => {
 
-                    overlay.classList.remove("active");
+                const { lat, lng } = e.latlng;
+
+                const res = await fetch("/get_country", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ lat, lng })
                 });
-            }
 
-            setTimeout(() => window.leafletMap.invalidateSize(), 100);
-        });
-    </script>
+                const data = await res.json();
 
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+                document.getElementById("info").textContent =
+                    `${data.country} — Capital: ${data.capital}`;
+
+                console.log("IMAGE URL:", data.image);
+
+                player.src = data.image;
+                player.style.display = "block";
+
+                overlay.classList.remove("active");
+            });
+        }
+
+        setTimeout(() => {
+            window.leafletMap.invalidateSize();
+        }, 100);
+    });
+</script>
 
 </body>
 </html>

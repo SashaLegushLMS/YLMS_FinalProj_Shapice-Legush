@@ -27,10 +27,11 @@ body {
     z-index: 999;
 }
 
-#leafletOverlay.active {
-    display: block;
-    background: rgba(0,0,0,0.6);
-}
+/* dark background layer */
+ #leafletOverlay.active {
+        display: block;
+        background: rgba(0,0,0,0.6);
+    }
 
 /* PLAYER */
 #bg {
@@ -43,6 +44,7 @@ body {
     object-fit: cover;
     border-radius: 10px;
     border: 2px solid #333;
+    z-index: 9999;
 }
 
 /* TOP BAR */
