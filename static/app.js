@@ -14,7 +14,6 @@ let currentWeather = {
     temp: 0
 };
 
-let pipActive = false;
 let renderLoopId = null;
 let currentImgElement = null;
 

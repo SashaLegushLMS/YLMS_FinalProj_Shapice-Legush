@@ -62,9 +62,6 @@ def get_capital_image(capital):
 
         response = requests.get(url, headers=headers)
 
-        if not response.text.strip():
-            return "/static/static.webp"
-
         data = response.json()
 
         thumbnail = data.get("thumbnail")
