@@ -4,7 +4,7 @@
     <title>Weather Viewer</title>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='AppStyle.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -15,15 +15,18 @@
     <div id="topbar">
         <img src="/static/top-image.jpg" id="topbar-img">
         <div id="topbar-content">
-            <h2>My Project</h2>
+            <h1 id="projectTitle">Weather Viewer</h1>
         </div>
     </div>
 
     <div id="center">
-        <h2 id="info">Click the world map</h2>
-        <img id="map" src="/static/unhovered.webp">
+        <h2 id="info">Нажми На Карту</h2>
+        <p id="api-disclaimer" style="display: none; color: #aaa; font-size: 13px; margin-top: -10px; margin-bottom: 20px;">
+            * По неведанной мне причине, когда названия стран и столиц выводятся на английском, то вывод картинок ломается.
+        </p>
 
-        <img id="preview" style="max-width:320px; max-height;200px; margin-top:10px; display:none;">
+        <img id="map" src="/static/unhovered.webp">
+        <img id="preview" style="max-width:320px; max-height:200px; margin-top:10px; display:none;">
     </div>
 
     <div id="leafletOverlay"></div>
@@ -43,11 +46,11 @@
 
     </div>
     <div id="weatherBox" class="weather-box">
-        <div id="weatherText">Weather: —</div>
+        <div id="weatherText">Погода: —</div>
     </div>
 
     <div id="footer">
-        All APIs used are the property of their respective owners.
+        Все использованные АПИ в данном проекте пренадлежат их создателям. Проект создан в образовательных целях.
     </div>
 
     <button id="debugWeather">

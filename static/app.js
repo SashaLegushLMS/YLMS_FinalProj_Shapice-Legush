@@ -16,13 +16,31 @@ let currentWeather = {
 
 let pipActive = false;
 let renderLoopId = null;
-let currentImgElement = null; // Holds reference to the active country image
+let currentImgElement = null;
 
-// Persistent state tracking arrays for smooth canvas animations (No static flickering)
+const weatherTranslations = {
+    "clear": "Ясно",
+    "clouds": "Облачно",
+    "rain": "Дождь",
+    "snow": "Снег",
+    "thunderstorm": "Гроза",
+    "unknown": "Неизвестно"
+};
+
+// Функция для безопасного перевода
+function translateWeather(engType) {
+    const lower = (engType || "").toLowerCase();
+    for (const key in weatherTranslations) {
+        if (lower.includes(key)) {
+            return weatherTranslations[key];
+        }
+    }
+    return engType; // Если совпадений нет, вернет текст как есть
+}
+
 const rainDrops = [];
 const snowFlakes = [];
 
-// Pre-load the cloud asset once when the script initializes
 const cloudImg = new Image();
 cloudImg.src = "/static/clouds.png";
 
@@ -30,7 +48,6 @@ function initWeatherParticles() {
     rainDrops.length = 0;
     snowFlakes.length = 0;
 
-    // Pre-populate 120 persistent rain lines
     for (let i = 0; i < 120; i++) {
         rainDrops.push({
             x: Math.random() * 1280,
@@ -40,7 +57,6 @@ function initWeatherParticles() {
         });
     }
 
-    // Pre-populate 80 persistent drifting snowflakes
     for (let i = 0; i < 80; i++) {
         snowFlakes.push({
             x: Math.random() * 1280,
@@ -54,12 +70,12 @@ function initWeatherParticles() {
 initWeatherParticles();
 
 // -------------------------
-// WEATHER RENDERING (PiP Canvas Engine)
+// РЕНДЕР ПОГОДЫ
 // -------------------------
 function drawWeather(ctx) {
     const type = currentWeather.type.toLowerCase();
 
-    // 1. CLEAR SKIES (Radial sun glow overlay)
+    // 1. Солнечно
     if (type.includes("clear")) {
         const gradient = ctx.createRadialGradient(640, 0, 50, 640, 0, 600);
         gradient.addColorStop(0, "rgba(255, 230, 120, 0.25)");
@@ -68,37 +84,29 @@ function drawWeather(ctx) {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // 2. CLOUDS (Tiled/Repeated pattern to prevent stretching - 40% Larger)
+    // 2. Облачно
     if (type.includes("cloud")) {
-        // Soft ambient fog layer tint
         ctx.fillStyle = "rgba(200, 200, 200, 0.08)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Render cloud PNG as a repeating pattern if loaded
         if (cloudImg.complete && cloudImg.naturalWidth !== 0) {
-            ctx.save(); // Save context state
+            ctx.save();
 
-            // 1. Create the horizontal repeating pattern
             const pattern = ctx.createPattern(cloudImg, 'repeat-x');
-
-            // 2. Calculate scale factor to make the cloud image 210px tall (40% larger than 150px)
             const targetHeight = 210;
             const scaleY = targetHeight / cloudImg.naturalHeight;
 
-            // Keep the aspect ratio uniform by scaling X by the same amount to reduce tiling frequency
             const matrix = new DOMMatrix();
             matrix.scaleSelf(scaleY, scaleY);
             pattern.setTransform(matrix);
 
-            // 3. Apply and fill the top section
             ctx.fillStyle = pattern;
             ctx.fillRect(0, 0, canvas.width, targetHeight);
-
-            ctx.restore(); // Restore context state
+            ctx.restore();
         }
     }
 
-    // 3. RAIN (Animate downward particle lines frame-by-frame)
+    // 3. Дождливо
     if (type.includes("rain")) {
         ctx.fillStyle = "rgba(100, 150, 255, 0.08)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -112,7 +120,6 @@ function drawWeather(ctx) {
             ctx.lineTo(drop.x + 1, drop.y + drop.len);
             ctx.stroke();
 
-            // Advance particle layout location down the screen canvas
             drop.y += drop.speed;
             if (drop.y > canvas.height) {
                 drop.y = -drop.len;
@@ -121,7 +128,7 @@ function drawWeather(ctx) {
         });
     }
 
-    // 4. SNOW (Animate drifting round circle layout matrices)
+    // 4. Снег
     if (type.includes("snow")) {
         ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -142,19 +149,16 @@ function drawWeather(ctx) {
         });
     }
 
-    // 5. THUNDERSTORM (Ambient darkness + periodic white flash animations)
+    // 5. Гроза
     if (type.includes("thunder") || type.includes("storm")) {
-        // Darken environment context canvas framework
         ctx.fillStyle = "rgba(15, 15, 35, 0.3)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Procedural Lightning matrix (4% frequency trigger chance per render loop frame update)
         if (Math.random() < 0.04) {
             ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
-        // Seamlessly bundle background tracking rain strings within the storm pipeline
         ctx.strokeStyle = "rgba(180, 220, 255, 0.3)";
         ctx.lineWidth = 1.5;
         rainDrops.forEach(drop => {
@@ -173,16 +177,14 @@ function drawWeather(ctx) {
 }
 
 // -------------------------
-// PiP RENDERING CORE
+// ЯДРО РЕНДЕРА ПОГОДЫ
 // -------------------------
 function drawPiP(img) {
-    // 1. Clear with flat background
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (!img) return;
 
-    // 2. Scale image (Using Math.min ensures the total image fits without being chopped off)
     const scale = Math.min(
         canvas.width / img.width,
         canvas.height / img.height
@@ -196,10 +198,8 @@ function drawPiP(img) {
 
     ctx.drawImage(img, x, y, w, h);
 
-    // 3. Render canvas-driven weather effects directly into the stream frame space
     drawWeather(ctx);
 
-    // 4. Draw Weather Dashboard Box (Bottom Left)
     const boxW = 670;
     const boxH = 150;
 
@@ -214,12 +214,12 @@ function drawPiP(img) {
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
 
-    ctx.fillText(`Weather: ${currentWeather.type}`, bx + 15, by + 15);
+    ctx.fillText(`Погода: ${translateWeather(currentWeather.type)}`, bx + 15, by + 15);
     ctx.fillText(`${currentWeather.temp}°C`, bx + 15, by + 75);
 }
 
 // -------------------------
-// ANIMATION LOOP CONTROL
+// КОНТРОЛЬ АНИМАЦИИ
 // -------------------------
 function startRenderLoop() {
     if (renderLoopId) {
@@ -234,12 +234,9 @@ function startRenderLoop() {
     loop();
 }
 
-// Helper to update HTML view layers alongside the canvas tracking
 function updateMainPageWeatherUI(type, temp) {
-    // Sync text content
     weatherBox.textContent = `Weather: ${type} | ${temp}°C`;
 
-    // Clear previous weather classes from the normal UI overlays
     weatherOverlay.className = "";
     weatherOverlay.classList.add("active");
 
@@ -252,7 +249,7 @@ function updateMainPageWeatherUI(type, temp) {
 }
 
 // -------------------------
-// MAP CLICK LOGIC
+// ЛОГИКА ВЗАИМОДЕЙСТВИЯ С КАРТОЙ
 // -------------------------
 mapImg.addEventListener("click", () => {
     overlay.classList.add("active");
@@ -297,7 +294,8 @@ mapImg.addEventListener("click", () => {
 
             const data = await res.json();
 
-            // Render country metadata directly to main layout view
+            document.getElementById("playerContainer").style.display = "block";
+
             document.getElementById("info").textContent = `${data.country}, ${data.capital}`;
 
             preview.style.display = "block";
@@ -305,39 +303,32 @@ mapImg.addEventListener("click", () => {
 
             currentWeather = data.weather;
 
-            // Sync main webpage weather presentation layout options
+            document.getElementById("api-disclaimer").style.display = "block";
+
             updateMainPageWeatherUI(currentWeather.type, currentWeather.temp);
             weatherBox.style.display = "block";
 
-            // Prepare Image Asset for Pipeline Capture Engine
             const img = new Image();
             img.crossOrigin = "anonymous";
 
             img.onload = async () => {
-                // Initialize canvas sizes configuration before hooking streams
                 canvas.width = 1280;
                 canvas.height = 720;
 
-                // Sync global worker pointer targeting new graphic data
                 currentImgElement = img;
 
-                // Fire continuous rendering cycles
                 startRenderLoop();
 
-                // Re-instantiate stream connection to update rendering targets seamlessly on country updates
                 const stream = canvas.captureStream(30);
                 video.srcObject = stream;
                 await video.play().catch(err => console.warn("Video element autoplay catch:", err));
 
-                // Request Picture-In-Picture presentation layer
                 try {
                     pipActive = true;
-                    weatherBox.style.display = "none"; // Hide standard box if tracking in PiP window
+                    weatherBox.style.display = "none";
 
-                    // Small execution pause prevents race-conditions with DOM adjustments
                     setTimeout(async () => {
                         try {
-                            // Check if already in PiP window, if not request it
                             if (document.pictureInPictureElement !== video) {
                                 await video.requestPictureInPicture();
                             }
@@ -362,7 +353,7 @@ mapImg.addEventListener("click", () => {
 });
 
 // -------------------------
-// DEBUG WEATHER PANEL
+// КНОПКА ДЕБАГА ПОГОДЫ
 // -------------------------
 const debugButton = document.getElementById("debugWeather");
 
@@ -388,8 +379,18 @@ debugButton.addEventListener("click", () => {
     debugIndex = (debugIndex + 1) % debugWeathers.length;
 });
 
-// Sync tracking setup so when PiP closes, elements restore back beautifully
 video.addEventListener('leavepictureinpicture', () => {
     pipActive = false;
     weatherBox.style.display = "block";
+});
+
+// ------------- ПОКАЗ КНОПКИ ДЕБАГА -------------
+const projectTitle = document.getElementById("projectTitle");
+
+projectTitle.addEventListener("click", () => {
+    if (debugButton.style.display === "none") {
+        debugButton.style.display = "block";
+    } else {
+        debugButton.style.display = "none";
+    }
 });

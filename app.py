@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+﻿from flask import Flask, request, jsonify, render_template
 import requests
 import sqlite3
 from urllib.parse import quote
@@ -8,7 +8,7 @@ app = Flask(__name__)
 OPENCAGE_API_KEY = "b3e000baa86547b986357b08160f2589"
 WEATHER_API_KEY = "1a7f51c23fcfefd85eec06b53cca2585"
 
-# ---------------- DATABASE ----------------
+# ---------------- ДАТАБАЗА ----------------
 
 conn = sqlite3.connect("countries.db", check_same_thread=False)
 cursor = conn.cursor()
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS countries (
 
 conn.commit()
 
-# ---------------- WEATHER ----------------
+# ---------------- ПОГОДА ----------------
 
 def get_weather(lat, lng):
     url = "https://api.openweathermap.org/data/2.5/weather"
@@ -46,7 +46,7 @@ def get_weather(lat, lng):
         "temp": temp
     }
 
-# ---------------- CAPITAL IMAGE ----------------
+# ---------------- КАРТИНКА СТОЛИЦЫ ----------------
 
 def get_capital_image(capital):
 
@@ -82,7 +82,7 @@ def get_capital_image(capital):
 
     return "/static/static.webp"
 
-# ---------------- HOME ----------------
+# ---------------- ХОМ ----------------
 
 @app.route("/")
 def index():
@@ -93,7 +93,7 @@ def index():
 
     return render_template("index.html", countries=countries)
 
-# ---------------- COUNTRY LOOKUP ----------------
+# ---------------- ПОИСК СТРАНЫ ----------------
 
 @app.route("/get_country", methods=["POST"])
 def get_country():
@@ -105,12 +105,13 @@ def get_country():
 
     try:
 
-        # -------- GEO LOOKUP --------
+        # -------- ПОИСК ПО ГЕО --------
         geo_url = "https://api.opencagedata.com/geocode/v1/json"
 
         geo_params = {
             "q": f"{lat},{lng}",
             "key": OPENCAGE_API_KEY
+
         }
 
         geo_response = requests.get(geo_url, params=geo_params)
@@ -130,7 +131,7 @@ def get_country():
         components = geo["results"][0].get("components", {})
         country_name = components.get("country", "Unknown")
 
-        # -------- DATABASE CHECK --------
+        # -------- ПРОВЕРКА ДАТАБАЗЫ --------
         cursor.execute(
             "SELECT capital, image FROM countries WHERE name=?",
             (country_name,)
@@ -139,7 +140,7 @@ def get_country():
         row = cursor.fetchone()
 
         # -----------------------------
-        # COUNTRY ALREADY CACHED
+        # СТРАНЫ КОТОРЫЕ УЖЕ БЫЛИ В БАЗЕ ДАННЫХ
         # -----------------------------
         if row:
 
@@ -165,10 +166,10 @@ def get_country():
                     ["Unknown"]
                 )[0]
 
-            # -------- IMAGE --------
+            # -------- КАРТИКА --------
             image = get_capital_image(capital)
 
-            # -------- SAVE --------
+            # -------- СОХРАНЕНИЕ --------
             cursor.execute(
                 "INSERT INTO countries VALUES (?, ?, ?)",
                 (country_name, capital, image)
@@ -177,7 +178,7 @@ def get_country():
             conn.commit()
 
         # --------------------------------
-        # GET WEATHER FOR CAPITAL CITY
+        # ПОЛУЧЕНИЕ ПОГОДЫ В СТОЛИЦЕ
         # --------------------------------
 
         weather = {
@@ -214,7 +215,7 @@ def get_country():
         except Exception as e:
             print("CAPITAL WEATHER ERROR:", e)
 
-        # -------- RESPONSE --------
+        # -------- ОТВЕТ --------
         return jsonify({
             "country": country_name,
             "capital": capital,
@@ -235,7 +236,7 @@ def get_country():
             }
         })
 
-# ---------------- START ----------------
+# ---------------- СТАРТ ----------------
 
 if __name__ == "__main__":
     app.run(debug=True)
