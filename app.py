@@ -6,6 +6,7 @@ from urllib.parse import quote
 app = Flask(__name__)
 
 OPENCAGE_API_KEY = "b3e000baa86547b986357b08160f2589"
+WEATHER_API_KEY = "1a7f51c23fcfefd85eec06b53cca2585"
 
 # ---------------- DATABASE ----------------
 
@@ -22,12 +23,34 @@ CREATE TABLE IF NOT EXISTS countries (
 
 conn.commit()
 
-# ---------------- GET CAPITAL IMAGE ----------------
+# ---------------- WEATHER ----------------
+
+def get_weather(lat, lng):
+    url = "https://api.openweathermap.org/data/2.5/weather"
+
+    params = {
+        "lat": lat,
+        "lon": lng,
+        "appid": WEATHER_API_KEY,
+        "units": "metric"
+    }
+
+    r = requests.get(url, params=params)
+    data = r.json()
+
+    weather = data["weather"][0]["main"]
+    temp = data["main"]["temp"]
+
+    return {
+        "type": weather,
+        "temp": temp
+    }
+
+# ---------------- CAPITAL IMAGE ----------------
 
 def get_capital_image(capital):
 
     try:
-
         url = (
             "https://en.wikipedia.org/api/rest_v1/page/summary/"
             + quote(capital)
@@ -39,32 +62,22 @@ def get_capital_image(capital):
 
         response = requests.get(url, headers=headers)
 
-        print("STATUS:", response.status_code)
-        print("TEXT:", response.text[:200])
-
-        # wikipedia sometimes returns non-json
         if not response.text.strip():
             return "/static/static.webp"
 
         data = response.json()
 
-        print("WIKIPEDIA:", data)
-
         thumbnail = data.get("thumbnail")
 
         if thumbnail:
-
             image_url = thumbnail.get("source")
 
             if image_url:
-
                 if image_url.startswith("//"):
                     image_url = "https:" + image_url
-
                 return image_url
 
     except Exception as e:
-
         print("IMAGE ERROR:", e)
 
     return "/static/static.webp"
@@ -73,9 +86,7 @@ def get_capital_image(capital):
 
 @app.route("/")
 def index():
-
     cursor.execute("SELECT name FROM countries ORDER BY name")
-
     rows = cursor.fetchall()
 
     countries = {row[0]: {} for row in rows}
@@ -94,8 +105,7 @@ def get_country():
 
     try:
 
-        # -------- GET COUNTRY NAME --------
-
+        # -------- GEO LOOKUP --------
         geo_url = "https://api.opencagedata.com/geocode/v1/json"
 
         geo_params = {
@@ -104,17 +114,23 @@ def get_country():
         }
 
         geo_response = requests.get(geo_url, params=geo_params)
-
         geo = geo_response.json()
 
-        print(geo)
+        if not geo.get("results"):
+            return jsonify({
+                "country": "Unknown",
+                "capital": "Unknown",
+                "image": "/static/static.webp",
+                "weather": {
+                    "type": "Unknown",
+                    "temp": 0
+                }
+            })
 
-        country_name = geo["results"][0]["components"].get("country")
+        components = geo["results"][0].get("components", {})
+        country_name = components.get("country", "Unknown")
 
-        print("COUNTRY:", country_name)
-
-        # -------- CHECK DATABASE --------
-
+        # -------- DATABASE CHECK --------
         cursor.execute(
             "SELECT capital, image FROM countries WHERE name=?",
             (country_name,)
@@ -122,71 +138,101 @@ def get_country():
 
         row = cursor.fetchone()
 
-        # -------- RETURN CACHED --------
-
+        # -----------------------------
+        # COUNTRY ALREADY CACHED
+        # -----------------------------
         if row:
 
-            print("Loaded from database")
+            capital = row[0]
+            image = row[1]
 
-            return jsonify({
-                "country": country_name,
-                "capital": row[0],
-                "image": row[1]
-            })
+        else:
 
-        # -------- FETCH FROM RESTCOUNTRIES --------
+            # -------- RESTCOUNTRIES --------
+            rest_url = (
+                "https://restcountries.com/v3.1/name/"
+                + quote(country_name)
+            )
 
-        print("Fetching from API")
+            rest_response = requests.get(rest_url)
+            rest_data = rest_response.json()
 
-        rest_url = (
-            "https://restcountries.com/v3.1/name/"
-            + quote(country_name)
-        )
+            capital = "Unknown"
 
-        rest_response = requests.get(rest_url)
+            if isinstance(rest_data, list):
+                capital = rest_data[0].get(
+                    "capital",
+                    ["Unknown"]
+                )[0]
 
-        rest_data = rest_response.json()
+            # -------- IMAGE --------
+            image = get_capital_image(capital)
 
-        capital = "Unknown"
+            # -------- SAVE --------
+            cursor.execute(
+                "INSERT INTO countries VALUES (?, ?, ?)",
+                (country_name, capital, image)
+            )
 
-        if isinstance(rest_data, list):
+            conn.commit()
 
-            capital = rest_data[0].get(
-                "capital",
-                ["Unknown"]
-            )[0]
+        # --------------------------------
+        # GET WEATHER FOR CAPITAL CITY
+        # --------------------------------
 
-        # -------- GET CAPITAL IMAGE --------
+        weather = {
+            "type": "Unknown",
+            "temp": 0
+        }
 
-        image = get_capital_image(capital)
+        try:
 
-        # -------- SAVE TO DATABASE --------
+            capital_geo_params = {
+                "q": capital,
+                "key": OPENCAGE_API_KEY
+            }
 
-        cursor.execute(
-            "INSERT INTO countries (name, capital, image) VALUES (?, ?, ?)",
-            (country_name, capital, image)
-        )
+            capital_geo_response = requests.get(
+                geo_url,
+                params=capital_geo_params
+            )
 
-        conn.commit()
+            capital_geo = capital_geo_response.json()
 
-        print("Saved to database")
+            if capital_geo.get("results"):
 
-        # -------- RETURN --------
+                geometry = capital_geo["results"][0]["geometry"]
 
+                capital_lat = geometry["lat"]
+                capital_lng = geometry["lng"]
+
+                weather = get_weather(
+                    capital_lat,
+                    capital_lng
+                )
+
+        except Exception as e:
+            print("CAPITAL WEATHER ERROR:", e)
+
+        # -------- RESPONSE --------
         return jsonify({
             "country": country_name,
             "capital": capital,
-            "image": image
+            "image": image,
+            "weather": weather
         })
 
     except Exception as e:
-
         print("ERROR:", e)
 
         return jsonify({
             "country": "Error",
             "capital": "Error",
-            "image": "/static/static.webp"
+            "image": "/static/static.webp",
+            "weather": {
+                "type": "Unknown",
+                "temp": 0
+            }
         })
 
 # ---------------- START ----------------

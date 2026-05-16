@@ -5,14 +5,13 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='AppStyle.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 
 <body>
 
-    <!-- TOP BAR -->
     <div id="topbar">
         <img src="/static/top-image.jpg" id="topbar-img">
         <div id="topbar-content">
@@ -20,98 +19,42 @@
         </div>
     </div>
 
-    <!-- CENTER -->
     <div id="center">
         <h2 id="info">Click the world map</h2>
         <img id="map" src="/static/unhovered.webp">
+
+        <img id="preview" style="max-width:320px; max-height;200px; margin-top:10px; display:none;">
     </div>
 
-    <!-- LEAFLET OVERLAY -->
     <div id="leafletOverlay"></div>
 
-    <!-- IMAGE FIXED (this is the important change) -->
-    <img id="bg" src="/static/static.webp">
+    <div id="playerContainer">
 
-    <!-- FOOTER -->
+        <canvas id="pipCanvas"></canvas>
+
+        <video id="pipVideo"
+               autoplay
+               muted
+               playsinline
+               controlslist="nofullscreen nodownload noplaybackrate noremoteplayback">
+        </video>
+
+        <div id="weatherOverlay"></div>
+
+    </div>
+    <div id="weatherBox" class="weather-box">
+        <div id="weatherText">Weather: —</div>
+    </div>
+
     <div id="footer">
         All APIs used are the property of their respective owners.
     </div>
 
-<script>
-    const mapImg = document.getElementById("map");
-    const overlay = document.getElementById("leafletOverlay");
-    const player = document.getElementById("bg");
+    <button id="debugWeather">
+        Debug Weather
+    </button>
 
-    player.onerror = () => {
-        console.log("Image failed, using fallback");
-        player.src = "/static/static.webp";
-    };
-
-    mapImg.addEventListener("click", () => {
-
-        overlay.classList.add("active");
-
-        if (!window.leafletMap) {
-
-            const bounds = [
-                [-85, -180],
-                [85, 180]
-            ];
-
-            window.leafletMap = L.map('leafletOverlay', {
-                center: [20, 0],
-                zoom: 2,
-                minZoom: 2,
-                maxZoom: 6,
-
-                zoomControl: false,
-                dragging: false,
-                scrollWheelZoom: true,
-                doubleClickZoom: true,
-                boxZoom: true,
-                keyboard: false,
-                touchZoom: true,
-
-                maxBounds: bounds,
-                maxBoundsViscosity: 1.0
-            });
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 6,
-                noWrap: true,
-                bounds: bounds,
-                attribution: '&copy; OpenStreetMap'
-            }).addTo(window.leafletMap);
-
-            window.leafletMap.on("click", async (e) => {
-
-                const { lat, lng } = e.latlng;
-
-                const res = await fetch("/get_country", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ lat, lng })
-                });
-
-                const data = await res.json();
-
-                document.getElementById("info").textContent =
-                    `${data.country} — Capital: ${data.capital}`;
-
-                console.log("IMAGE URL:", data.image);
-
-                player.src = data.image;
-                player.style.display = "block";
-
-                overlay.classList.remove("active");
-            });
-        }
-
-        setTimeout(() => {
-            window.leafletMap.invalidateSize();
-        }, 100);
-    });
-</script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 
 </body>
 </html>
