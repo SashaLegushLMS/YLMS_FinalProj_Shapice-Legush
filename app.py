@@ -2,6 +2,13 @@
 import requests
 import sqlite3
 from urllib.parse import quote
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+OPENCAGE_API_KEY = os.getenv("OPENCAGE_API_KEY")
+WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 
 app = Flask(__name__)
 
